@@ -12,6 +12,11 @@ type Todo struct {
 
 var todos = []*Todo{
 	{
+		ID:        "0",
+		Task:      "Grind",
+		Completed: true,
+	},
+	{
 		ID:        "1",
 		Task:      "Learn Golang",
 		Completed: false,

@@ -53,4 +53,9 @@ func setupRoutes(app *fiber.App) {
 	//connects todo routes
 	routes.TodoRoute(api.Group("/todos"))
 
+	//c.BodyParser(&struct{})
+	// This will recieve requested data from the client and populate the struct with data
+	// Then we can give a response back to client using
+	// return c.JSON(struct)
+
 }
