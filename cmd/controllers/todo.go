@@ -1,39 +1,46 @@
 package controllers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	//"fmt"
+	"os"
 	"slices"
 	"strconv"
+	"time"
+
+	"github.com/gigak23/FiberAPI.git/cmd/config"
+	"github.com/gigak23/FiberAPI.git/cmd/models"
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-type Todo struct {
-	ID        int    `json:"id"`
-	Task      string `json:"task"`
-	Completed bool   `json:"completed"`
-}
-
-// Creates a slice of pointer to Todo struct
-var todos = []*Todo{
-	{
-		ID:        1,
-		Task:      "Grind",
-		Completed: true,
-	},
-	{
-		ID:        2,
-		Task:      "Learn Golang",
-		Completed: false,
-	},
-	{
-		ID:        3,
-		Task:      "Do homework",
-		Completed: false,
-	},
-}
-
 func GetTodos(c *fiber.Ctx) error {
+	todoCollection := config.MI.DB.Collection(os.Getenv("TODO_COLLECTION"))
 
+	//Create empty query to filter data we want
+	var query bson.D
+
+	//Stores all the data we queried
+	cursor, err := todoCollection.Find(c.Context(), query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot store documents",
+			"error":   err,
+		})
+	}
+
+	var todos []models.Todo = make([]models.Todo, 0)
+
+	//Assings all data in cursor into a Todo struct in todos slice
+	err = cursor.All(c.Context(), &todos)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot assign ",
+			"error":   err.Error(),
+		})
+	}
+
+	//returns queried todos
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
@@ -44,35 +51,45 @@ func GetTodos(c *fiber.Ctx) error {
 
 func CreateTodo(c *fiber.Ctx) error {
 
-	//Holds the task value
-	type Request struct {
-		Task string `json:"task"`
-	}
+	todoCollection := config.MI.DB.Collection("TODO_COLLECTION")
 
-	var body Request
+	data := new(models.Todo)
 
-	//Tries to convert assign JSON value into Request struct body
+	//Tries to convert assign JSON value into Todo struct data
 	//error if this cannot be done
-	err := c.BodyParser(&body)
+	err := c.BodyParser(&data)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "could not parse",
+			"error":   err.Error(),
 		})
 	}
 
-	//Creates a new todo in the todos struct
-	//with the task provided form user
-	todo := &Todo{
-		ID:        len(todos) + 1,
-		Task:      body.Task,
-		Completed: false,
+	//Assign default values to Todo struct data
+	data.ID = nil
+	f := false
+	data.Completed = &f
+	data.CreatedAt = time.Now()
+	data.UpdatedAt = time.Now()
+
+	//Inserts the data into the collection in mongoDB
+	result, err := todoCollection.InsertOne(c.Context(), data)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot insert todo",
+			"error":   err.Error(),
+		})
 	}
 
-	//Adds new todo into todos slice
-	todos = append(todos, todo)
+	//Get the inserted data
+	todo := &models.Todo{}
+	query := bson.D{{Key: "_id", Value: result.InsertedID}}
 
-	//Displays the list of todos on server
+	todoCollection.FindOne(c.Context(), query).Decode(todo)
+
+	//Displays the created todo
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"data":    todo,
