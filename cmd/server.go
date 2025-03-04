@@ -1,9 +1,13 @@
 package main
 
 import (
+	"log"
+
+	"github.com/gigak23/FiberAPI.git/cmd/config"
 	"github.com/gigak23/FiberAPI.git/cmd/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -11,15 +15,18 @@ func main() {
 	app := fiber.New()
 	app.Use(logger.New())
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Could not load environment variables")
+	}
+
+	config.ConnectDB()
+
 	// setup routes
 	setupRoutes(app)
 
-	for _, route := range app.GetRoutes() {
-		println("Registered route:", route.Method, route.Path)
-	}
-
 	//Listen on server 3000 and catch error
-	err := app.Listen(":3000")
+	err = app.Listen(":3000")
 
 	//handle error
 	if err != nil {
